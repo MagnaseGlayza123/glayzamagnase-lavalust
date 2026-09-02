@@ -63,17 +63,17 @@ Configure your web server to point to the project root and ensure `mod_rewrite` 
 
 **File:** `app/config/routes.php`
 
-```php
+
 $router->get('/', 'Welcome::index');
 $router->get('/about', 'Welcome::about');
 $router->post('/users/store', 'Users::store');
-```
+
 
 ### 2. Create a Controller
 
 **File:** `app/controllers/Welcome.php`
 
-```php
+
 <?php
 
 class Welcome extends Controller
@@ -89,7 +89,7 @@ class Welcome extends Controller
         $this->call->view('about');
     }
 }
-```
+
 
 ### 3. Create a View
 
@@ -113,7 +113,7 @@ class Welcome extends Controller
 
 **File:** `app/models/User_model.php`
 
-```php
+
 <?php
 
 class User_model extends Model
@@ -132,7 +132,7 @@ class User_model extends Model
                         ->get()
     }
 }
-```
+
 
 ---
 
@@ -160,7 +160,7 @@ lavalust/
 
 **File:** `app/config/database.php`
 
-```php
+
 $database['main'] = array(
     'driver'	=> '',
     'hostname'	=> getenv('DB_HOST') ?: '',
@@ -173,15 +173,15 @@ $database['main'] = array(
     // Optional for SQLite
     'path'      => ''
 );
-```
+
 
 ### Base URL
 
 **File:** `app/config/config.php`
 
-```php
+
 $config['base_url'] = 'http://localhost:3000/';
-```
+
 
 ---
 
@@ -189,7 +189,7 @@ $config['base_url'] = 'http://localhost:3000/';
 
 LavaLust supports REST API development out of the box. Controllers can return JSON responses for API endpoints.
 
-```php
+
 <?php
 
 class Api extends Controller
@@ -207,13 +207,13 @@ class Api extends Controller
         $this->api->respond(['data' => $users]);
     }
 }
-```
+
 
 Route definition:
 
-```php
+
 $router->get('/api/users', 'Api::users');
-```
+
 
 ---
 

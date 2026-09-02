@@ -1,4 +1,3 @@
-```php
 <?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
@@ -53,9 +52,7 @@ $database['main'] = array(
     'database'  => getenv('DB_DATABASE'),
     'charset'   => 'utf8mb4',
     'dbprefix'  => '',
-    // Optional for SQLite
     'path'      => ''
 );
 
 ?>
-```
