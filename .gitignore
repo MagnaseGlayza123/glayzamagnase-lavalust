@@ -1,2 +1,4 @@
 .env
-!.env.example
+!.env.exampleruntime/session/
+
+/runtime/session/

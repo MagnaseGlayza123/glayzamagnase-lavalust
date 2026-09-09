@@ -6,7 +6,7 @@ class AuthMiddleware
 {
     public function handle($next)
     {
-        $session = new Session();
+        $session = load_class('Session', 'libraries');
 
         if ($session->has_userdata('user_id')) {
             return $next();
