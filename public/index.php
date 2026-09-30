@@ -1,14 +1,46 @@
 <?php
 define('PREVENT_DIRECT_ACCESS', TRUE);
+
+/*
+ * ------------------------------------------------------
+ * GLOBAL CORS
+ * ------------------------------------------------------
+ */
+
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://product-management-react.onrender.com',
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+if (in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: $origin");
+}
+
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Credentials: true');
+header('Vary: Origin');
+
+/*
+ * Handle browser CORS preflight requests
+ */
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 /**
  * ------------------------------------------------------------------
  * LavaLust - an opensource lightweight PHP MVC Framework
  * ------------------------------------------------------------------
  *
  * MIT License
- * 
+ *
  * Copyright (c) 2020 Ronald M. Marasigan
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -42,10 +74,10 @@ define('PREVENT_DIRECT_ACCESS', TRUE);
  *
  * This variable must contain the name of your "scheme" directory.
  * Set the path if it is not in the same directory as this file.
- * 
+ *
  * NO TRAILING SLASH!
  */
-	$system_path 			= 'scheme';
+$system_path = 'scheme';
 
 /*
  *---------------------------------------------------------------
@@ -53,27 +85,28 @@ define('PREVENT_DIRECT_ACCESS', TRUE);
  *---------------------------------------------------------------
  *
  * If you want this front controller to use a different "app"
- * directory than the default one you can set its name here.
+ * directory from the default one you can set its name here.
  *
  * NO TRAILING SLASH!
  */
-	$application_folder 	= 'app';
+$application_folder = 'app';
 
 /*
  *---------------------------------------------------------------
- * APPLICATION DIRECTORY NAME
+ * PUBLIC DIRECTORY NAME
  *---------------------------------------------------------------
- * This let you set up your public folder where css, js and other public,
- * files will be visible
+ *
+ * This lets you set up your public folder where CSS, JS and other
+ * public files will be visible.
  */
-	$public_folder			= 'public';
+$public_folder = 'public';
 
 /*
  * ------------------------------------------------------
  * Define Application Constants
  * ------------------------------------------------------
  */
-define('ROOT_DIR',  dirname(__DIR__) . DIRECTORY_SEPARATOR);
+define('ROOT_DIR', dirname(__DIR__) . DIRECTORY_SEPARATOR);
 define('SYSTEM_DIR', ROOT_DIR . $system_path . DIRECTORY_SEPARATOR);
 define('APP_DIR', ROOT_DIR . $application_folder . DIRECTORY_SEPARATOR);
 define('PUBLIC_DIR', $public_folder);
