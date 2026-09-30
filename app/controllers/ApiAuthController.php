@@ -1,5 +1,5 @@
-<?php
 
+<?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
 class ApiAuthController extends Controller
@@ -13,143 +13,134 @@ class ApiAuthController extends Controller
         $this->call->database();
         $this->call->model('RefreshTokenModel');
 
-        $this->refreshTokenModel = $this->RefreshTokenModel;
+        $this->refreshTokenModel = new RefreshTokenModel();
     }
 
-    // ==========================================
-    // CORS HEADERS
-    // ==========================================
-    private function setCorsHeaders()
+    /**
+     * CORS headers
+     */
+    private function cors()
     {
-        header('Access-Control-Allow-Origin: http://localhost:5173');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-    }
+        $allowedOrigins = [
+            'http://localhost:5173',
+            'http://localhost:5174',
+            'https://product-management-react.onrender.com',
+        ];
 
-    // ==========================================
-    // POST /api/login
-    // ==========================================
-    public function login()
-    {
-        $this->setCorsHeaders();
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
-        header('Content-Type: application/json');
-
-        // Get raw JSON request
-        $rawInput = file_get_contents('php://input');
-
-        // Remove UTF-8 BOM if present
-        $rawInput = preg_replace('/^\xEF\xBB\xBF/', '', $rawInput);
-
-        // Remove unnecessary whitespace
-        $rawInput = trim($rawInput);
-
-        // Decode JSON
-        $input = json_decode($rawInput, true);
-
-        // Check if JSON is valid
-        if (!is_array($input)) {
-            http_response_code(400);
-
-            echo json_encode([
-                'status' => false,
-                'message' => 'Invalid JSON request.'
-            ]);
-
-            return;
+        if (in_array($origin, $allowedOrigins, true)) {
+            header("Access-Control-Allow-Origin: $origin");
         }
 
-        // Get username and password
-        $username = $input['username'] ?? '';
-        $password = $input['password'] ?? '';
+        header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+        header('Access-Control-Allow-Credentials: true');
+        header('Content-Type: application/json');
 
-        // ==========================================
-        // CHECK LOGIN CREDENTIALS
-        // ==========================================
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(200);
+            exit;
+        }
+    }
 
+    /**
+     * Generate random token
+     */
+    private function generateToken($length = 64)
+    {
+        return bin2hex(random_bytes($length / 2));
+    }
+
+    /**
+     * Login
+     */
+    public function login()
+    {
+        $this->cors();
+
+        $rawInput = file_get_contents('php://input');
+
+        // Remove possible UTF-8 BOM
+        $rawInput = preg_replace('/^\xEF\xBB\xBF/', '', $rawInput);
+
+        $data = json_decode($rawInput, true);
+
+        if (!is_array($data)) {
+            $data = $_POST;
+        }
+
+        $username = trim($data['username'] ?? '');
+        $password = $data['password'] ?? '';
+
+        // Lab 6 credentials
         if ($username !== 'admin' || $password !== 'admin123') {
             http_response_code(401);
 
             echo json_encode([
-                'status' => false,
+                'success' => false,
                 'message' => 'Invalid username or password.'
             ]);
 
             return;
         }
 
-        // ==========================================
-        // GENERATE ACCESS TOKEN
-        // ==========================================
+        try {
+            $token = $this->generateToken(64);
+            $jti = $this->generateToken(32);
 
-        $token = bin2hex(random_bytes(32));
+            // Token valid for 24 hours
+            $expiresAt = date('Y-m-d H:i:s', time() + (24 * 60 * 60));
 
-        // Generate token identifier
-        $jti = bin2hex(random_bytes(16));
+            $inserted = $this->refreshTokenModel->insert([
+                'user_id' => 1,
+                'token' => $token,
+                'expires_at' => $expiresAt,
+                'jti' => $jti
+            ]);
 
-        // Token expires after 24 hours
-        $expiresAt = date(
-            'Y-m-d H:i:s',
-            time() + (24 * 60 * 60)
-        );
+            if (!$inserted) {
+                http_response_code(500);
 
-        // ==========================================
-        // SAVE TOKEN TO DATABASE
-        // ==========================================
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to save authentication token.'
+                ]);
 
-        $insertId = $this->refreshTokenModel->insert([
-            'user_id' => 1,
-            'token' => $token,
-            'expires_at' => $expiresAt,
-            'jti' => $jti
-        ]);
-
-        // ==========================================
-        // VERIFY TOKEN WAS SAVED
-        // ==========================================
-
-        $tokens = $this->refreshTokenModel->all();
-
-        $tokenSaved = false;
-        $matchedRecord = null;
-
-        foreach ($tokens as $record) {
-
-            if (
-                is_array($record) &&
-                isset($record['token']) &&
-                hash_equals($record['token'], $token)
-            ) {
-                $tokenSaved = true;
-                $matchedRecord = $record;
-                break;
+                return;
             }
+
+            http_response_code(200);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Login successful.',
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'expires_at' => $expiresAt,
+                'user' => [
+                    'id' => 1,
+                    'username' => 'admin'
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+
+            echo json_encode([
+                'success' => false,
+                'message' => 'Login failed.',
+                'error' => $e->getMessage()
+            ]);
         }
-
-        // ==========================================
-        // SUCCESS RESPONSE
-        // ==========================================
-
-        echo json_encode([
-            'status' => true,
-            'message' => 'Login successful.',
-            'token' => $token,
-            'expires_at' => $expiresAt,
-            'insert_id' => $insertId,
-            'token_saved' => $tokenSaved,
-            'total_tokens' => count($tokens),
-            'matched_record' => $matchedRecord
-        ]);
     }
 
-    // ==========================================
-    // POST /api/logout
-    // ==========================================
+    /**
+     * Logout
+     */
     public function logout()
     {
-        $this->setCorsHeaders();
-
-        header('Content-Type: application/json');
+        $this->cors();
 
         $token = $this->getBearerToken();
 
@@ -157,124 +148,112 @@ class ApiAuthController extends Controller
             http_response_code(401);
 
             echo json_encode([
-                'status' => false,
-                'message' => 'Authentication token is required.'
+                'success' => false,
+                'message' => 'Authorization token is required.'
             ]);
 
             return;
         }
 
-        $tokenRecord = $this->findToken($token);
+        try {
+            $this->refreshTokenModel
+                ->where('token', $token)
+                ->delete();
 
-        if (!$tokenRecord) {
-            http_response_code(401);
+            http_response_code(200);
 
             echo json_encode([
-                'status' => false,
-                'message' => 'Invalid or expired token.'
+                'success' => true,
+                'message' => 'Logout successful.'
             ]);
 
-            return;
+        } catch (Exception $e) {
+            http_response_code(500);
+
+            echo json_encode([
+                'success' => false,
+                'message' => 'Logout failed.',
+                'error' => $e->getMessage()
+            ]);
         }
-
-        $this->refreshTokenModel->delete($tokenRecord['id']);
-
-        echo json_encode([
-            'status' => true,
-            'message' => 'Logout successful.'
-        ]);
     }
 
-    // ==========================================
-    // GET BEARER TOKEN
-    // ==========================================
+    /**
+     * Get Bearer token from request headers
+     */
     private function getBearerToken()
     {
-        $headers = function_exists('getallheaders')
-            ? getallheaders()
-            : [];
+        $headers = [];
+
+        if (function_exists('getallheaders')) {
+            $headers = getallheaders();
+        }
 
         $authorization = '';
 
-        foreach ($headers as $key => $value) {
-
-            if (strtolower($key) === 'authorization') {
-                $authorization = $value;
-                break;
-            }
-        }
-
-        if (
-            !$authorization &&
-            isset($_SERVER['HTTP_AUTHORIZATION'])
-        ) {
+        if (isset($headers['Authorization'])) {
+            $authorization = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authorization = $headers['authorization'];
+        } elseif (isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $authorization = $_SERVER['HTTP_AUTHORIZATION'];
-        }
-
-        if (
-            !$authorization &&
-            isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])
-        ) {
+        } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
             $authorization = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
-        }
-
-        if (
-            !$authorization &&
-            function_exists('apache_request_headers')
-        ) {
+        } elseif (function_exists('apache_request_headers')) {
             $apacheHeaders = apache_request_headers();
 
-            foreach ($apacheHeaders as $key => $value) {
-
-                if (strtolower($key) === 'authorization') {
-                    $authorization = $value;
-                    break;
-                }
+            if (isset($apacheHeaders['Authorization'])) {
+                $authorization = $apacheHeaders['Authorization'];
+            } elseif (isset($apacheHeaders['authorization'])) {
+                $authorization = $apacheHeaders['authorization'];
             }
         }
 
-        if (
-            $authorization &&
-            preg_match(
-                '/Bearer\s+(.+)/i',
-                $authorization,
-                $matches
-            )
-        ) {
+        if (preg_match('/Bearer\s+(.+)/i', $authorization, $matches)) {
             return trim($matches[1]);
         }
 
         return null;
     }
 
-    // ==========================================
-    // FIND TOKEN
-    // ==========================================
-    private function findToken($token)
+    /**
+     * Find and validate token
+     */
+    public function findToken($token)
     {
-        $tokens = $this->refreshTokenModel->all();
-
-        foreach ($tokens as $record) {
-
-            if (
-                is_array($record) &&
-                isset($record['token']) &&
-                hash_equals($record['token'], $token)
-            ) {
-
-                if (
-                    isset($record['expires_at']) &&
-                    strtotime($record['expires_at']) > time()
-                ) {
-                    return $record;
-                }
-
-                return null;
-            }
+        if (!$token) {
+            return false;
         }
 
-        return null;
+        $result = $this->refreshTokenModel
+            ->where('token', $token)
+            ->get();
+
+        if (!$result) {
+            return false;
+        }
+
+        if (is_array($result)) {
+            $tokenData = $result[0] ?? null;
+        } else {
+            $tokenData = $result;
+        }
+
+        if (!$tokenData) {
+            return false;
+        }
+
+        $expiresAt = $tokenData['expires_at'] ?? null;
+
+        if (!$expiresAt) {
+            return false;
+        }
+
+        if (strtotime($expiresAt) <= time()) {
+            return false;
+        }
+
+        return $tokenData;
     }
 }
-
 ?>
