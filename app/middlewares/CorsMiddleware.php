@@ -1,3 +1,4 @@
+
 <?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
@@ -8,6 +9,7 @@ class CorsMiddleware
         $allowedOrigins = [
             'http://localhost:5173',
             'http://localhost:5174',
+            'https://product-management-react.onrender.com',
         ];
 
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
